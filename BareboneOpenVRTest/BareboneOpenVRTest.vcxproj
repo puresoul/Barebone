@@ -78,10 +78,10 @@
     <OutDir>$(SolutionDir)\..\bin\drivers\barebones\bin\win32\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)\..\bin\drivers\barebones\bin\win64\</OutDir>
+    <OutDir>$(SolutionDir)\barebones\bin\win64\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>$(SolutionDir)\..\bin\drivers\barebones\bin\win32\</OutDir>
+    <OutDir>$(SolutionDir)\barebones\bin\win32\</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

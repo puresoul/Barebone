@@ -1,0 +1,5 @@
+{
+	"alwaysActivate": true,
+	"name" : "barebones",
+	"resourceOnly" : false
+}

@@ -41,7 +41,7 @@ bool ctrl = true;
 bool running;    // Used to break the loop
 Gamepad gamepad; // Gamepad instance
 TController MyCtrl[2];
-int32_t ControllerIndex;
+
 
 #if defined(_WIN32)
 #define HMD_DLL_EXPORT extern "C" __declspec( dllexport )
@@ -72,6 +72,7 @@ inline HmdQuaternion_t HmdQuaternion_Init(double w, double x, double y, double z
 //-----------------------------------------------------------------------------
 class CBarebonesControllerDriver : public vr::ITrackedDeviceServerDriver
 {
+	int32_t ControllerIndex;
 public:
 	CBarebonesControllerDriver()
 	{
@@ -117,11 +118,11 @@ public:
 		{
 		case 0:
 			Ctrl1Index_t = unObjectId;
-			Ctrl1Index_t = vr::VRProperties()->TrackedDeviceToPropertyContainer(Ctrl1Index_t);
+			m_ulPropertyContainer = vr::VRProperties()->TrackedDeviceToPropertyContainer(Ctrl1Index_t);
 			break;
 		case 1:
 			Ctrl2Index_t = unObjectId;
-			Ctrl2Index_t = vr::VRProperties()->TrackedDeviceToPropertyContainer(Ctrl2Index_t);
+			m_ulPropertyContainer = vr::VRProperties()->TrackedDeviceToPropertyContainer(Ctrl2Index_t);
 			break;
 		}
 
@@ -144,9 +145,6 @@ public:
 			vr::VRProperties()->SetInt32Property(m_ulPropertyContainer, Prop_ControllerRoleHint_Int32, TrackedControllerRole_RightHand);
 			break;
 		}
-
-		m_unObjectId = unObjectId;
-		m_ulPropertyContainer = vr::VRProperties()->TrackedDeviceToPropertyContainer(m_unObjectId);
 		// retrieve the property container of the current HMD
 		vr::PropertyContainerHandle_t ulContainer = vr::VRProperties()->TrackedDeviceToPropertyContainer(k_unTrackedDeviceIndex_Hmd);
 
@@ -240,8 +238,8 @@ public:
 	* and thread use it can when it is deactivated */
 	virtual void Deactivate()
 	{
-		m_unObjectId = vr::k_unTrackedDeviceIndexInvalid;
-
+		Ctrl1Index_t = vr::k_unTrackedDeviceIndexInvalid;
+		Ctrl2Index_t = vr::k_unTrackedDeviceIndexInvalid;
 	}
 
 	/** Handles a request from the system to put this device into standby mode. What that means is defined per-device. */
@@ -326,51 +324,97 @@ public:
 
 		double offset[3] = { -0.90, -0.1, 0.16 }; //x=dn-r, y=up, z=dn-l
 
-		float X = MyCtrl[ControllerIndex].X + ((cos(c) * 0.6) + (sin(c) * 0.6));// +(cos(c) * 0.6) * (sin(c) * 0.6));
-		float Y = MyCtrl[ControllerIndex].Y;
-		float Z = MyCtrl[ControllerIndex].Z - ((cos(a) * 0.6) + (sin(a) * 0.6));// +(cos(a) * 0.6) * (sin(a) * 0.6));
+		if (ControllerIndex == 0) {
+			float X = MyCtrl[0].X + ((cos(c) * 0.6) + (sin(c) * 0.6));// +(cos(c) * 0.6) * (sin(c) * 0.6));
+			float Y = MyCtrl[0].Y;
+			float Z = MyCtrl[0].Z - ((cos(a) * 0.6) + (sin(a) * 0.6));// +(cos(a) * 0.6) * (sin(a) * 0.6));
 
-		if (center == true) {
-			MyCtrl[ControllerIndex].X = a + offset[0];
-			MyCtrl[ControllerIndex].Y = b + offset[1];
-			MyCtrl[ControllerIndex].Z = c + offset[2];
-			MyCtrl[ControllerIndex].Yaw = 0.0;
-			MyCtrl[ControllerIndex].Roll = 0.0;
-			MyCtrl[ControllerIndex].Pitch = 0.0;
-			center = false;
+			if (center1 == true) {
+				MyCtrl[0].X = a + offset[0];
+				MyCtrl[0].Y = b + offset[1];
+				MyCtrl[0].Z = c + offset[2];
+				MyCtrl[0].Yaw = 0.0;
+				MyCtrl[0].Roll = 0.0;
+				MyCtrl[0].Pitch = 0.0;
+				center1 = false;
+			}
+
+			pose.vecDriverFromHeadTranslation[0] = 0;
+			pose.vecDriverFromHeadTranslation[1] = 0;
+			pose.vecDriverFromHeadTranslation[2] = 0;
+			pose.vecAcceleration[0] = 0;
+			pose.vecAcceleration[1] = 0;
+			pose.vecAcceleration[2] = 0;
+
+			pose.vecPosition[0] = X;
+			pose.vecPosition[1] = Y;
+			pose.vecPosition[2] = Z;
+
+			//Convert yaw, pitch, roll to quaternion
+			float w = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) + sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
+			float x = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) - sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
+			float y = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5) + sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5);
+			float z = sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) - cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
+
+			//float W = w - rot.w;
+			float Xr = x - rot.x;
+			float Yr = y - rot.y;
+			float Zr = z - rot.z;
+
+			pose.qRotation.w = rot.w;
+			pose.qRotation.x = rot.x;
+			pose.qRotation.y = rot.y;
+			pose.qRotation.z = rot.z;
+		}
+		else {
+			float X = MyCtrl[1].X + ((cos(c) * 0.6) + (sin(c) * 0.6));// +(cos(c) * 0.6) * (sin(c) * 0.6));
+			float Y = MyCtrl[1].Y;
+			float Z = MyCtrl[1].Z - ((cos(a) * 0.6) + (sin(a) * 0.6));// +(cos(a) * 0.6) * (sin(a) * 0.6));
+
+			if (center2 == true) {
+				MyCtrl[1].X = a + offset[0];
+				MyCtrl[1].Y = b + offset[1];
+				MyCtrl[1].Z = c + offset[2];
+				MyCtrl[1].Yaw = 0.0;
+				MyCtrl[1].Roll = 0.0;
+				MyCtrl[1].Pitch = 0.0;
+				center2 = false;
+			}
+
+			pose.vecDriverFromHeadTranslation[0] = 0;
+			pose.vecDriverFromHeadTranslation[1] = 0;
+			pose.vecDriverFromHeadTranslation[2] = 0;
+			pose.vecAcceleration[0] = 0;
+			pose.vecAcceleration[1] = 0;
+			pose.vecAcceleration[2] = 0;
+
+			pose.vecPosition[0] = X;
+			pose.vecPosition[1] = Y;
+			pose.vecPosition[2] = Z;
+
+
+			//Convert yaw, pitch, roll to quaternion
+			float w = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) + sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
+			float x = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) - sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
+			float y = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5) + sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5);
+			float z = sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) - cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
+
+			//float W = w - rot.w;
+			float Xr = x - rot.x;
+			float Yr = y - rot.y;
+			float Zr = z - rot.z;
+
+			pose.qRotation.w = rot.w;
+			pose.qRotation.x = rot.x;
+			pose.qRotation.y = rot.y;
+			pose.qRotation.z = rot.z;
 		}
 
-		pose.vecDriverFromHeadTranslation[0] = 0;
-		pose.vecDriverFromHeadTranslation[1] = 0;
-		pose.vecDriverFromHeadTranslation[2] = 0;
-		pose.vecAcceleration[0] = 0;
-		pose.vecAcceleration[1] = 0;
-		pose.vecAcceleration[2] = 0;
-
-		pose.vecPosition[0] = X;
-		pose.vecPosition[1] = Y;
-		pose.vecPosition[2] = Z;
-
 		if (cnt == 100) {
-			DriverLog("%d - HMD: %f %f %f / %f %f %f\n", ControllerIndex, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
+			DriverLog("%d - HMD: %f %f %f / %f %f %f\n", 0, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
 			cnt = 0;
 		}
 
-		//Convert yaw, pitch, roll to quaternion
-		float w = cos(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5) + sin(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5);
-		float x = cos(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5) - sin(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5);
-		float y = cos(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5) + sin(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5);
-		float z = sin(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5) - cos(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5);
-
-		//float W = w - rot.w;
-		float Xr = x - rot.x;
-		float Yr = y - rot.y;
-		float Zr = z - rot.z;
-
-		pose.qRotation.w = rot.w;
-		pose.qRotation.x = rot.x;
-		pose.qRotation.y = rot.y;
-		pose.qRotation.z = rot.z;
 
 		IVRServerDriverHost* pDriverHost = vr::VRServerDriverHost();
 
@@ -378,9 +422,9 @@ public:
 		{
 			DriverLog("barebonse: CServerDriver::RunFrame() pDriverHost is NULL\n");
 		}
-
+		return pose;
 	}
-	void ProcessHandles() {
+	void ProcessHandles(int32_t index) {
 
 		// Triggers
 
@@ -429,7 +473,7 @@ public:
 		if (float RghStX = gamepad.RightStick_X())
 		{
 			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, RghStX, 0);
-			MyCtrl[ControllerIndex].Pitch = MyCtrl[ControllerIndex].Pitch - RghStX * 1.2;
+			MyCtrl[index].Pitch = MyCtrl[index].Pitch - RghStX * 1.2;
 		}
 		else {
 			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, 0.0, 0);
@@ -438,7 +482,7 @@ public:
 		if (float RghStY = gamepad.RightStick_Y())
 		{
 			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, RghStY, 0);
-			MyCtrl[ControllerIndex].Roll = MyCtrl[ControllerIndex].Roll + RghStY * 1.2;
+			MyCtrl[index].Roll = MyCtrl[index].Roll + RghStY * 1.2;
 		}
 		else {
 			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, 0.0, 0);
@@ -509,9 +553,9 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.DPad_Left))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadLeft, 1, 0);
-			MyCtrl[ControllerIndex].X = MyCtrl[ControllerIndex].X - 0.01;
+			MyCtrl[index].X = MyCtrl[index].X - 0.01;
 			if (diag == true) {
-				MyCtrl[ControllerIndex].Z = MyCtrl[ControllerIndex].Z + 0.01;
+				MyCtrl[index].Z = MyCtrl[index].Z + 0.01;
 			}
 		}
 		else {
@@ -521,9 +565,9 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.DPad_Right))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadRight, 1, 0); //Trackpad touch
-			MyCtrl[ControllerIndex].X = MyCtrl[ControllerIndex].X + 0.01;
+			MyCtrl[index].X = MyCtrl[index].X + 0.01;
 			if (diag == true) {
-				MyCtrl[ControllerIndex].Z = MyCtrl[ControllerIndex].Z - 0.01;
+				MyCtrl[index].Z = MyCtrl[index].Z - 0.01;
 			}
 		}
 		else {
@@ -533,9 +577,9 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.DPad_Up))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadUp, 1, 0); //Trackpad touch
-			MyCtrl[ControllerIndex].Z = MyCtrl[ControllerIndex].Z - 0.01;
+			MyCtrl[index].Z = MyCtrl[index].Z - 0.01;
 			if (diag == true) {
-				MyCtrl[ControllerIndex].X = MyCtrl[ControllerIndex].X - 0.01;
+				MyCtrl[index].X = MyCtrl[index].X - 0.01;
 			}
 		}
 		else {
@@ -545,9 +589,9 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.DPad_Down))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadDown, 1, 0); //Trackpad touch
-			MyCtrl[ControllerIndex].Z = MyCtrl[ControllerIndex].Z + 0.01;
+			MyCtrl[index].Z = MyCtrl[index].Z + 0.01;
 			if (diag == true) {
-				MyCtrl[ControllerIndex].X = MyCtrl[ControllerIndex].X + 0.01;
+				MyCtrl[index].X = MyCtrl[index].X + 0.01;
 			}
 		}
 		else {
@@ -559,7 +603,7 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.L_Shoulder))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_bumLeft, 1, 0); //Trackpad touch
-			MyCtrl[ControllerIndex].Y = MyCtrl[ControllerIndex].Y + 0.01;
+			MyCtrl[index].Y = MyCtrl[index].Y + 0.01;
 		}
 		else {
 			vr::VRDriverInput()->UpdateBooleanComponent(m_bumLeft, 0, 0); //Trackpad touch
@@ -568,7 +612,7 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.R_Shoulder))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_bumRight, 1, 0); //Trackpad touc
-			MyCtrl[ControllerIndex].Y = MyCtrl[ControllerIndex].Y - 0.01;
+			MyCtrl[index].Y = MyCtrl[index].Y - 0.01;
 		}
 		else {
 			vr::VRDriverInput()->UpdateBooleanComponent(m_bumRight, 0, 0); //Trackpad touch
@@ -583,7 +627,7 @@ public:
 				SetControllerIndex(0);
 				DriverLog("%d - ctrl true\n", ControllerIndex);
 				ctrl = false;
-				center = true;
+				center1 = true;
 			}
 		}
 		else {
@@ -598,7 +642,7 @@ public:
 				SetControllerIndex(1);
 				DriverLog("%d - ctrl false\n", ControllerIndex);
 				ctrl = true;
-				center = true;
+				center2 = true;
 			}
 		}
 		else {
@@ -612,18 +656,19 @@ public:
 		switch (ControllerIndex)
 		{
 		case 0:
-			ProcessHandles();
+			ProcessHandles(0);
 			if (Ctrl1Index_t != vr::k_unTrackedDeviceIndexInvalid)
 			{
 				vr::VRServerDriverHost()->TrackedDevicePoseUpdated(Ctrl1Index_t, GetPose(), sizeof(DriverPose_t));
 			}
-
+			break;
 		case 1:
-			ProcessHandles();
+			ProcessHandles(1);
 			if (Ctrl2Index_t != vr::k_unTrackedDeviceIndexInvalid)
 			{
 				vr::VRServerDriverHost()->TrackedDevicePoseUpdated(Ctrl2Index_t, GetPose(), sizeof(DriverPose_t));
 			}
+			break;
 		}
 	}
 	std::string GetSerialNumber() const {
@@ -659,7 +704,6 @@ private:
 	vr::TrackedDeviceIndex_t Ctrl1Index_t;
 	vr::TrackedDeviceIndex_t Ctrl2Index_t;
 
-	vr::TrackedDeviceIndex_t m_unObjectId;
 	vr::PropertyContainerHandle_t m_ulPropertyContainer;
 	vr::HmdQuaternion_t m_hmdRot;
 
@@ -697,7 +741,8 @@ private:
 	bool pushed[15];
 	float m_hmdPos[3];
 	bool diag = true;
-	bool center = true;
+	bool center1 = false;
+	bool center2 = false;
 	int cnt = 0;
 };
 
@@ -716,8 +761,8 @@ public:
 	virtual void Cleanup();
 
 private:
-	CBarebonesControllerDriver* m_pController = nullptr;
-	CBarebonesControllerDriver* m_pController2 = nullptr;
+	CBarebonesControllerDriver *m_pController = nullptr;
+	CBarebonesControllerDriver *m_pController2 = nullptr;
 };
 
 static BareboneProvider g_serverDriverNull;
@@ -747,6 +792,8 @@ void BareboneProvider::Cleanup()
 	CleanupDriverLog();
 	delete m_pController;
 	m_pController = NULL;
+	delete m_pController2;
+	m_pController2 = NULL;
 }
 
 void BareboneProvider::RunFrame()

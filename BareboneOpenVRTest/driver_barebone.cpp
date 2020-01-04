@@ -31,17 +31,12 @@ typedef struct _Controller
 	double	Yaw;
 	double	Pitch;
 	double	Roll;
-	unsigned short	Buttons;
-	float	Trigger;
-	float	AxisX;
-	float	AxisY;
 } TController, * PController;
 
 bool ctrl = true;
-bool running;    // Used to break the loop
 Gamepad gamepad; // Gamepad instance
 TController MyCtrl[2];
-
+int32_t Active = 0;
 
 #if defined(_WIN32)
 #define HMD_DLL_EXPORT extern "C" __declspec( dllexport )
@@ -238,8 +233,8 @@ public:
 	* and thread use it can when it is deactivated */
 	virtual void Deactivate()
 	{
-		Ctrl1Index_t = vr::k_unTrackedDeviceIndexInvalid;
-		Ctrl2Index_t = vr::k_unTrackedDeviceIndexInvalid;
+		//Ctrl1Index_t = vr::k_unTrackedDeviceIndexInvalid;
+		//Ctrl2Index_t = vr::k_unTrackedDeviceIndexInvalid;
 	}
 
 	/** Handles a request from the system to put this device into standby mode. What that means is defined per-device. */
@@ -275,10 +270,9 @@ public:
 	virtual DriverPose_t GetPose()
 	{
 
-		//HmdVector3_t position;
-
-		HmdQuaternion_t rot;
 		DriverPose_t pose = { 0 };
+		TrackedDevicePose_t trackedDevicePose;
+		VRControllerState_t controllerState;
 
 		pose.poseIsValid = true;
 		pose.result = TrackingResult_Running_OK;
@@ -288,132 +282,85 @@ public:
 		pose.qDriverFromHeadRotation = HmdQuaternion_Init(1, 0, 0, 0);
 
 		pose.qRotation = HmdQuaternion_Init(0, 0, 0, 0);
-
-		TrackedDevicePose_t trackedDevicePose;
-		VRControllerState_t controllerState;
-		vr::TrackedDevicePose_t tracker;
-
-		for (unsigned int deviceId = 0; deviceId < k_unMaxTrackedDeviceCount; deviceId++) {
-
-			vr::TrackedDevicePose_t devicePoses[vr::k_unMaxTrackedDeviceCount];
-			vr::VRServerDriverHost()->GetRawTrackedDevicePoses(deviceId, devicePoses, vr::k_unMaxTrackedDeviceCount);
-			tracker = devicePoses[deviceId];
-			rot = GetRotation(tracker.mDeviceToAbsoluteTracking);
-			if (deviceId == 0) {
-				break;
-			}
-			/*VRControllerState_t controllerState;
-
-			ETrackedDeviceClass class =	vr_pointer->GetTrackedDeviceClass(id);
-
-			if (!vr_pointer->IsTrackedDeviceConnected(id))
-				continue;
-
-			if (class == ETrackedDeviceClass::) {
-				vr_pointer->);
-
-				//perform actions with pose struct (see next section)
-			}
-			if () {
-				break;*/
-		}
-
-		float a = (tracker.mDeviceToAbsoluteTracking.m[0][0]);
-		float b = tracker.mDeviceToAbsoluteTracking.m[1][0];
-		float c = (tracker.mDeviceToAbsoluteTracking.m[2][0]);
-
-		double offset[3] = { -0.90, -0.1, 0.16 }; //x=dn-r, y=up, z=dn-l
+		double offset = 1.5; //x=dn-r, y=up, z=dn-l
 
 		if (ControllerIndex == 0) {
-			float X = MyCtrl[0].X + ((cos(c) * 0.6) + (sin(c) * 0.6));// +(cos(c) * 0.6) * (sin(c) * 0.6));
-			float Y = MyCtrl[0].Y;
-			float Z = MyCtrl[0].Z - ((cos(a) * 0.6) + (sin(a) * 0.6));// +(cos(a) * 0.6) * (sin(a) * 0.6));
+
+			vr::TrackedDevicePose_t devicePoses[vr::k_unMaxTrackedDeviceCount];
+			vr::VRServerDriverHost()->GetRawTrackedDevicePoses(0, devicePoses, vr::k_unMaxTrackedDeviceCount);
+			vr::TrackedDevicePose_t tracker = devicePoses[0];
+			HmdQuaternion_t rot = GetRotation(tracker.mDeviceToAbsoluteTracking);
+
+			float a = (tracker.mDeviceToAbsoluteTracking.m[0][0]);
+			float b = tracker.mDeviceToAbsoluteTracking.m[1][0];
+			float c = (tracker.mDeviceToAbsoluteTracking.m[2][0]);
 
 			if (center1 == true) {
-				MyCtrl[0].X = a + offset[0];
-				MyCtrl[0].Y = b + offset[1];
-				MyCtrl[0].Z = c + offset[2];
-				MyCtrl[0].Yaw = 0.0;
-				MyCtrl[0].Roll = 0.0;
-				MyCtrl[0].Pitch = 0.0;
+				MyCtrl[0].X = 0;
+				MyCtrl[0].Y = offset;
+				MyCtrl[0].Z = 0;
 				center1 = false;
 			}
-
-			pose.vecDriverFromHeadTranslation[0] = 0;
+	
+			pose.vecDriverFromHeadTranslation[0] = 0.4 + MyCtrl[0].X;
 			pose.vecDriverFromHeadTranslation[1] = 0;
-			pose.vecDriverFromHeadTranslation[2] = 0;
+			pose.vecDriverFromHeadTranslation[2] = 0 + MyCtrl[0].Z;
 			pose.vecAcceleration[0] = 0;
 			pose.vecAcceleration[1] = 0;
 			pose.vecAcceleration[2] = 0;
 
-			pose.vecPosition[0] = X;
-			pose.vecPosition[1] = Y;
-			pose.vecPosition[2] = Z;
-
-			//Convert yaw, pitch, roll to quaternion
-			float w = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) + sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
-			float x = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) - sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
-			float y = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5) + sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5);
-			float z = sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) - cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
-
-			//float W = w - rot.w;
-			float Xr = x - rot.x;
-			float Yr = y - rot.y;
-			float Zr = z - rot.z;
+			pose.vecPosition[0] = c ;
+			pose.vecPosition[1] = MyCtrl[0].Y;
+			pose.vecPosition[2] = a * -1;
 
 			pose.qRotation.w = rot.w;
 			pose.qRotation.x = rot.x;
 			pose.qRotation.y = rot.y;
 			pose.qRotation.z = rot.z;
+			if (cnt == 100) {
+				DriverLog("%d - HMD: %f %f %f / %f %f %f\n", 0, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
+			}
 		}
 		else {
-			float X = MyCtrl[1].X + ((cos(c) * 0.6) + (sin(c) * 0.6));// +(cos(c) * 0.6) * (sin(c) * 0.6));
-			float Y = MyCtrl[1].Y;
-			float Z = MyCtrl[1].Z - ((cos(a) * 0.6) + (sin(a) * 0.6));// +(cos(a) * 0.6) * (sin(a) * 0.6));
+			vr::TrackedDevicePose_t devicePoses[vr::k_unMaxTrackedDeviceCount];
+			vr::VRServerDriverHost()->GetRawTrackedDevicePoses(0, devicePoses, vr::k_unMaxTrackedDeviceCount);
+			vr::TrackedDevicePose_t tracker = devicePoses[0];
+			HmdQuaternion_t rot = GetRotation(tracker.mDeviceToAbsoluteTracking);
+
+			float a = (tracker.mDeviceToAbsoluteTracking.m[0][0]);
+			float b = tracker.mDeviceToAbsoluteTracking.m[1][0];
+			float c = (tracker.mDeviceToAbsoluteTracking.m[2][0]);
 
 			if (center2 == true) {
-				MyCtrl[1].X = a + offset[0];
-				MyCtrl[1].Y = b + offset[1];
-				MyCtrl[1].Z = c + offset[2];
-				MyCtrl[1].Yaw = 0.0;
-				MyCtrl[1].Roll = 0.0;
-				MyCtrl[1].Pitch = 0.0;
+				MyCtrl[1].X = 0;
+				MyCtrl[1].Y = offset;
+				MyCtrl[1].Z = 0;
+
 				center2 = false;
 			}
 
-			pose.vecDriverFromHeadTranslation[0] = 0;
+			pose.vecDriverFromHeadTranslation[0] = 0.4 + MyCtrl[1].X;
 			pose.vecDriverFromHeadTranslation[1] = 0;
-			pose.vecDriverFromHeadTranslation[2] = 0;
+			pose.vecDriverFromHeadTranslation[2] = 0 + MyCtrl[1].Z;
 			pose.vecAcceleration[0] = 0;
 			pose.vecAcceleration[1] = 0;
 			pose.vecAcceleration[2] = 0;
 
-			pose.vecPosition[0] = X;
-			pose.vecPosition[1] = Y;
-			pose.vecPosition[2] = Z;
-
-
-			//Convert yaw, pitch, roll to quaternion
-			float w = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) + sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
-			float x = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) - sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
-			float y = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5) + sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5);
-			float z = sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) - cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
-
-			//float W = w - rot.w;
-			float Xr = x - rot.x;
-			float Yr = y - rot.y;
-			float Zr = z - rot.z;
+			pose.vecPosition[0] = c;
+			pose.vecPosition[1] = MyCtrl[1].Y;
+			pose.vecPosition[2] = a * -1;
 
 			pose.qRotation.w = rot.w;
 			pose.qRotation.x = rot.x;
 			pose.qRotation.y = rot.y;
 			pose.qRotation.z = rot.z;
+
+			if (cnt == 100) {
+				DriverLog("%d - HMD: %f %f %f / %f %f %f\n", 0, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
+			}
 		}
 
-		if (cnt == 100) {
-			DriverLog("%d - HMD: %f %f %f / %f %f %f\n", 0, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
-			cnt = 0;
-		}
+
 
 
 		IVRServerDriverHost* pDriverHost = vr::VRServerDriverHost();
@@ -422,11 +369,13 @@ public:
 		{
 			DriverLog("barebonse: CServerDriver::RunFrame() pDriverHost is NULL\n");
 		}
+		cnt++;
+		if (cnt == 101) {
+			cnt = 0;
+		}
 		return pose;
 	}
 	void ProcessHandles(int32_t index) {
-
-		// Triggers
 
 		if (float LftT = gamepad.LeftTrigger())
 		{
@@ -473,7 +422,6 @@ public:
 		if (float RghStX = gamepad.RightStick_X())
 		{
 			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, RghStX, 0);
-			MyCtrl[index].Pitch = MyCtrl[index].Pitch - RghStX * 1.2;
 		}
 		else {
 			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, 0.0, 0);
@@ -482,7 +430,6 @@ public:
 		if (float RghStY = gamepad.RightStick_Y())
 		{
 			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, RghStY, 0);
-			MyCtrl[index].Roll = MyCtrl[index].Roll + RghStY * 1.2;
 		}
 		else {
 			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, 0.0, 0);
@@ -535,14 +482,8 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.Back))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_back, 1, 0);
-			if (diag == true) {
-				DriverLog("Diag false");
-				diag = false;
-			}
-			else {
-				DriverLog("Diag true");
-				diag = true;
-			}
+			center2 = true;
+			center1 = true;
 		}
 		else {
 			vr::VRDriverInput()->UpdateBooleanComponent(m_back, 0, 0);
@@ -553,9 +494,9 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.DPad_Left))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadLeft, 1, 0);
-			MyCtrl[index].X = MyCtrl[index].X - 0.01;
+			MyCtrl[Active].X = MyCtrl[Active].X - 0.01;
 			if (diag == true) {
-				MyCtrl[index].Z = MyCtrl[index].Z + 0.01;
+				MyCtrl[Active].Z = MyCtrl[Active].Z + 0.01;
 			}
 		}
 		else {
@@ -565,9 +506,9 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.DPad_Right))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadRight, 1, 0); //Trackpad touch
-			MyCtrl[index].X = MyCtrl[index].X + 0.01;
+			MyCtrl[Active].X = MyCtrl[Active].X + 0.01;
 			if (diag == true) {
-				MyCtrl[index].Z = MyCtrl[index].Z - 0.01;
+				MyCtrl[Active].Z = MyCtrl[Active].Z - 0.01;
 			}
 		}
 		else {
@@ -577,9 +518,9 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.DPad_Up))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadUp, 1, 0); //Trackpad touch
-			MyCtrl[index].Z = MyCtrl[index].Z - 0.01;
+			MyCtrl[Active].Z = MyCtrl[Active].Z - 0.01;
 			if (diag == true) {
-				MyCtrl[index].X = MyCtrl[index].X - 0.01;
+				MyCtrl[Active].X = MyCtrl[Active].X - 0.01;
 			}
 		}
 		else {
@@ -589,9 +530,9 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.DPad_Down))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadDown, 1, 0); //Trackpad touch
-			MyCtrl[index].Z = MyCtrl[index].Z + 0.01;
+			MyCtrl[Active].Z = MyCtrl[Active].Z + 0.01;
 			if (diag == true) {
-				MyCtrl[index].X = MyCtrl[index].X + 0.01;
+				MyCtrl[Active].X = MyCtrl[Active].X + 0.01;
 			}
 		}
 		else {
@@ -603,7 +544,7 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.L_Shoulder))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_bumLeft, 1, 0); //Trackpad touch
-			MyCtrl[index].Y = MyCtrl[index].Y + 0.01;
+			MyCtrl[Active].Y = MyCtrl[Active].Y + 0.01;
 		}
 		else {
 			vr::VRDriverInput()->UpdateBooleanComponent(m_bumLeft, 0, 0); //Trackpad touch
@@ -612,7 +553,7 @@ public:
 		if (gamepad.GetButtonPressed(xButtons.R_Shoulder))
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_bumRight, 1, 0); //Trackpad touc
-			MyCtrl[index].Y = MyCtrl[index].Y - 0.01;
+			MyCtrl[Active].Y = MyCtrl[Active].Y - 0.01;
 		}
 		else {
 			vr::VRDriverInput()->UpdateBooleanComponent(m_bumRight, 0, 0); //Trackpad touch
@@ -624,10 +565,9 @@ public:
 		{
 			vr::VRDriverInput()->UpdateBooleanComponent(m_stickL, 1, 0); //Trackpad touch
 			if (ctrl == true) {
-				SetControllerIndex(0);
+				Active = 0;
 				DriverLog("%d - ctrl true\n", ControllerIndex);
 				ctrl = false;
-				center1 = true;
 			}
 		}
 		else {
@@ -639,10 +579,9 @@ public:
 			vr::VRDriverInput()->UpdateBooleanComponent(m_stickR, 1, 0); //Trackpad touch
 
 			if (ctrl == false) {
-				SetControllerIndex(1);
+				Active = 1;
 				DriverLog("%d - ctrl false\n", ControllerIndex);
 				ctrl = true;
-				center2 = true;
 			}
 		}
 		else {
@@ -705,7 +644,6 @@ private:
 	vr::TrackedDeviceIndex_t Ctrl2Index_t;
 
 	vr::PropertyContainerHandle_t m_ulPropertyContainer;
-	vr::HmdQuaternion_t m_hmdRot;
 
 	std::string m_sSerialNumber;
 
@@ -737,12 +675,9 @@ private:
 	vr::VRInputComponentHandle_t m_stickL;
 	vr::VRInputComponentHandle_t m_stickR;
 
-	bool leftctrl;
-	bool pushed[15];
-	float m_hmdPos[3];
-	bool diag = true;
-	bool center1 = false;
-	bool center2 = false;
+	bool diag = false;
+	bool center1 = true;
+	bool center2 = true;
 	int cnt = 0;
 };
 
@@ -754,7 +689,7 @@ class BareboneProvider : public IServerTrackedDeviceProvider
 public:
 	virtual EVRInitError Init(vr::IVRDriverContext* pDriverContext);
 	virtual const char* const* GetInterfaceVersions() { return vr::k_InterfaceVersions; }
-	virtual bool ShouldBlockStandbyMode() { return true; }
+	virtual bool ShouldBlockStandbyMode() { return false; }
 	virtual void EnterStandby() {}
 	virtual void LeaveStandby() {}
 	virtual void RunFrame();

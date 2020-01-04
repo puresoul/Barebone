@@ -28,9 +28,6 @@ typedef struct _Controller
 	double	X;
 	double	Y;
 	double	Z;
-	double	Yaw;
-	double	Pitch;
-	double	Roll;
 } TController, * PController;
 
 bool ctrl = true;
@@ -140,14 +137,10 @@ public:
 			vr::VRProperties()->SetInt32Property(m_ulPropertyContainer, Prop_ControllerRoleHint_Int32, TrackedControllerRole_RightHand);
 			break;
 		}
-		// retrieve the property container of the current HMD
-		vr::PropertyContainerHandle_t ulContainer = vr::VRProperties()->TrackedDeviceToPropertyContainer(k_unTrackedDeviceIndex_Hmd);
 
 		uint64_t supportedButtons = 0xA4;
 		vr::VRProperties()->SetUint64Property(m_ulPropertyContainer, vr::Prop_SupportedButtons_Uint64, supportedButtons);
 
-
-		// retrieve and save the factory calibration data
 
 		vr::VRProperties()->SetStringProperty(m_ulPropertyContainer, vr::Prop_ControllerType_String, "vive_controller");
 		vr::VRProperties()->SetStringProperty(m_ulPropertyContainer, vr::Prop_LegacyInputProfile_String, "vive_controller");
@@ -157,22 +150,12 @@ public:
 		vr::VRProperties()->SetStringProperty(m_ulPropertyContainer, vr::Prop_RenderModelName_String, "vr_controller_vive_1_5");
 
 		vr::VRProperties()->SetStringProperty(m_ulPropertyContainer, Prop_TrackingSystemName_String, "VR Controller");
-		//vr::VRProperties()->SetInt32Property(m_ulPropertyContainer, Prop_DeviceClass_Int32, TrackedDeviceClass_Controller);
-		//vr::VRProperties()->SetInt32Property(m_ulPropertyContainer, vr::Prop_Axis0Type_Int32, vr::k_eControllerAxis_TrackPad);
-		// return a constant that's not 0 (invalid) or 1 (reserved for Oculus)
+
 		vr::VRProperties()->SetUint64Property(m_ulPropertyContainer, Prop_CurrentUniverseId_Uint64, 2218716);
 
 		// avoid "not fullscreen" warnings from vrmonitor
 		vr::VRProperties()->SetBoolProperty(m_ulPropertyContainer, Prop_IsOnDesktop_Bool, false);
 
-		// our sample device isn't actually tracked, so set this property to avoid having the icon blink in the status window
-		//vr::VRProperties()->SetBoolProperty(m_ulPropertyContainer, Prop_NeverTracked_Bool, true);
-
-		// even though we won't ever track we want to pretend to be the right hand so binding will work as expected
-		//vr::VRProperties()->SetInt32Property(m_ulPropertyContainer, Prop_ControllerRoleHint_Int32, TrackedControllerRole_OptOut);
-
-		// this file tells the UI what to show the user for binding this controller as well as what default bindings should
-		// be for legacy or other apps
 		vr::VRProperties()->SetStringProperty(m_ulPropertyContainer, Prop_InputProfilePath_String, "{barebones}/input/barebones_profile.json");
 
 		bool bSetupIconUsingExternalResourceFile = false;
@@ -187,10 +170,6 @@ public:
 			vr::VRProperties()->SetStringProperty(m_ulPropertyContainer, vr::Prop_NamedIconPathDeviceStandby_String, "{barebones}/icons/barebones_status_standby.png");
 			vr::VRProperties()->SetStringProperty(m_ulPropertyContainer, vr::Prop_NamedIconPathDeviceAlertLow_String, "{barebones}/icons/barebones_status_ready_low.png");
 		}
-
-		// create all the input components
-		//vr::VRDriverInput()->CreateScalarComponent(m_ulPropertyContainer, "/input/joystick/x", &rightJoystickXInputHandle, EVRScalarType::VRScalarType_Absolute, VRScalarUnits_NormalizedTwoSided);
-		//vr::VRDriverInput()->CreateScalarComponent(m_ulPropertyContainer, "/input/joystick/y", &rightJoystickYInputHandle, EVRScalarType::VRScalarType_Absolute, VRScalarUnits_NormalizedTwoSided);
 
 		vr::VRDriverInput()->CreateScalarComponent(
 			m_ulPropertyContainer, "/input/trackpad/x", &leftJoystickXInputHandle,
@@ -233,8 +212,8 @@ public:
 	* and thread use it can when it is deactivated */
 	virtual void Deactivate()
 	{
-		//Ctrl1Index_t = vr::k_unTrackedDeviceIndexInvalid;
-		//Ctrl2Index_t = vr::k_unTrackedDeviceIndexInvalid;
+		Ctrl1Index_t = vr::k_unTrackedDeviceIndexInvalid;
+		Ctrl2Index_t = vr::k_unTrackedDeviceIndexInvalid;
 	}
 
 	/** Handles a request from the system to put this device into standby mode. What that means is defined per-device. */
@@ -269,7 +248,6 @@ public:
 	// ------------------------------------
 	virtual DriverPose_t GetPose()
 	{
-
 		DriverPose_t pose = { 0 };
 		TrackedDevicePose_t trackedDevicePose;
 		VRControllerState_t controllerState;
@@ -282,7 +260,7 @@ public:
 		pose.qDriverFromHeadRotation = HmdQuaternion_Init(1, 0, 0, 0);
 
 		pose.qRotation = HmdQuaternion_Init(0, 0, 0, 0);
-		double offset = 1.5; //x=dn-r, y=up, z=dn-l
+		double offset = 1.5;
 
 		if (ControllerIndex == 0) {
 
@@ -318,7 +296,7 @@ public:
 			pose.qRotation.y = rot.y;
 			pose.qRotation.z = rot.z;
 			if (cnt == 100) {
-				DriverLog("%d - HMD: %f %f %f / %f %f %f\n", 0, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
+				DriverLog("%d - HMD: %f %f %f / %f %f %f\n", ControllerIndex, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
 			}
 		}
 		else {
@@ -356,12 +334,9 @@ public:
 			pose.qRotation.z = rot.z;
 
 			if (cnt == 100) {
-				DriverLog("%d - HMD: %f %f %f / %f %f %f\n", 0, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
+				DriverLog("%d - HMD: %f %f %f / %f %f %f\n", ControllerIndex, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
 			}
 		}
-
-
-
 
 		IVRServerDriverHost* pDriverHost = vr::VRServerDriverHost();
 
@@ -375,8 +350,8 @@ public:
 		}
 		return pose;
 	}
-	void ProcessHandles(int32_t index) {
 
+	void ProcessHandles(int32_t index) {
 		if (float LftT = gamepad.LeftTrigger())
 		{
 			if (LftT > 0.6) {
@@ -761,10 +736,6 @@ void BareboneProvider::RunFrame()
 	}
 
 }
-
-////-----------------------------------------------------------------------------
-//// Purpose:
-////-----------------------------------------------------------------------------
 
 HMD_DLL_EXPORT void* HmdDriverFactory(const char* pInterfaceName, int* pReturnCode)
 {

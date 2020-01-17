@@ -36,7 +36,7 @@ typedef struct _Controller
 bool ctrl = true;
 Gamepad gamepad; // Gamepad instance
 TController MyCtrl[2];
-int32_t Active = 0;
+int32_t Active = 1;
 
 #if defined(_WIN32)
 #define HMD_DLL_EXPORT extern "C" __declspec( dllexport )
@@ -289,7 +289,6 @@ public:
 			}
 
 			pose.vecDriverFromHeadTranslation[0] = MyCtrl[0].X;
-			pose.vecDriverFromHeadTranslation[1] = 0;
 			pose.vecDriverFromHeadTranslation[2] = MyCtrl[0].Z;
 
 			r.w = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) + sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
@@ -297,14 +296,13 @@ public:
 			r.y = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5) + sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5);
 			r.z = sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) - cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
 
-			pose.qRotation.w = r.w * rot.w - r.x * rot.x - r.y * rot.y - r.z * rot.z;
-			pose.qRotation.x = r.w * rot.x + r.x * rot.w - r.y * rot.z + r.z * rot.y;
-			pose.qRotation.y = r.w * rot.y + r.x * rot.z + r.y * rot.w - r.z * rot.x;
-			pose.qRotation.z = r.w * rot.z - r.x * rot.y + r.y * rot.x + r.z * rot.w;
+			pose.qRotation = rot;
 
-			pose.vecPosition[0] = c ;
+			pose.qDriverFromHeadRotation = r;
+
+			pose.vecPosition[0] = c / 2;
 			pose.vecPosition[1] = MyCtrl[0].Y;
-			pose.vecPosition[2] = a * -1;
+			pose.vecPosition[2] = a * -1 / 2;
 
 
 			if (cnt == 100) {
@@ -328,28 +326,22 @@ public:
 			}
 
 			pose.vecDriverFromHeadTranslation[0] = MyCtrl[1].X;
-			pose.vecDriverFromHeadTranslation[1] = 0;
 			pose.vecDriverFromHeadTranslation[2] = MyCtrl[1].Z;
+			
 
 			r.w = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) + sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
 			r.x = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) - sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
 			r.y = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5) + sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5);
 			r.z = sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) - cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
 
-			pose.qRotation.w = r.w * rot.w - r.x * rot.x - r.y * rot.y - r.z * rot.z;
-			pose.qRotation.x = r.w * rot.x + r.x * rot.w - r.y * rot.z + r.z * rot.y;
-			pose.qRotation.y = r.w * rot.y + r.x * rot.z + r.y * rot.w - r.z * rot.x;
-			pose.qRotation.z = r.w * rot.z - r.x * rot.y + r.y * rot.x + r.z * rot.w;
+			pose.qRotation = rot;
 
-			pose.vecAcceleration[0] = 0;
-			pose.vecAcceleration[1] = 0;
-			pose.vecAcceleration[2] = 0;
+			pose.qDriverFromHeadRotation = r;
 
-			pose.vecPosition[0] = c;
+			pose.vecPosition[0] = c/2;
 			pose.vecPosition[1] = MyCtrl[1].Y;
-			pose.vecPosition[2] = a * -1;
-
-
+			pose.vecPosition[2] = a * -1/2;
+			
 			if (cnt == 100) {
 				DriverLog("%d - HMD: %f %f %f / %f %f %f\n", ControllerIndex, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
 			}
@@ -384,7 +376,7 @@ public:
 			{
 				if (RghT > 0.6) {
 					vr::VRDriverInput()->UpdateScalarComponent(rightTriggerInputHandle, RghT, 0);
-					/*if (prc <= 10) {
+					if (prc <= 10) {
 						switch (swap)
 						{
 						case 0:
@@ -396,7 +388,7 @@ public:
 							DriverLog("swap true");
 							break;
 						}
-					}*/
+					}
 				}
 			}
 			else {

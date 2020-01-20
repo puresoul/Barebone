@@ -202,7 +202,7 @@ public:
 		
 
 		vr::VRDriverInput()->CreateScalarComponent(
-			m_ulPropertyContainer, "/input/trigger/value", &leftTriggerInputHandle[ControllerIndex],
+			m_ulPropertyContainer, "/input/trigger/value", &TriggerInputHandle[ControllerIndex],
 			vr::EVRScalarType::VRScalarType_Absolute, vr::EVRScalarUnits::VRScalarUnits_NormalizedOneSided
 		);
 
@@ -285,21 +285,22 @@ public:
 		float b = tracker.mDeviceToAbsoluteTracking.m[1][0];
 		float c = (tracker.mDeviceToAbsoluteTracking.m[2][0]);
 
-		if (ControllerIndex == 0) {
+		if (center == true) {
+			MyCtrl[ControllerIndex].X = 0;
+			MyCtrl[ControllerIndex].Y = offset;
+			MyCtrl[ControllerIndex].Z = 0;
+			MyCtrl[ControllerIndex].Yaw = 0;
+			MyCtrl[ControllerIndex].Pitch = 0;
+			MyCtrl[ControllerIndex].Roll = 0;
+			pose.qRotation.w = rot.w;
+			pose.qRotation.x = rot.x;
+			pose.qRotation.y = rot.y;
+			pose.qRotation.z = rot.z;
+			pose.vecDriverFromHeadTranslation[2] = 3.5;
+			center = false;
+		}
 
-			if (center1 == true) {
-				MyCtrl[0].X = 0;
-				MyCtrl[0].Y = offset;
-				MyCtrl[0].Z = 0;
-				MyCtrl[0].Yaw = 0;
-				MyCtrl[0].Pitch = 0;
-				MyCtrl[0].Roll = 0;
-				pose.qRotation.w = rot.w;
-				pose.qRotation.x = rot.x;
-				pose.qRotation.y = rot.y;
-				pose.qRotation.z = rot.z;
-				center1 = false;
-			}
+		if (ControllerIndex == 0) {
 
 			pose.vecDriverFromHeadTranslation[0] = MyCtrl[0].X;
 			pose.vecDriverFromHeadTranslation[2] = MyCtrl[0].Z;
@@ -313,9 +314,9 @@ public:
 
 			pose.qDriverFromHeadRotation = r;
 
-			pose.vecPosition[0] = c / 2;
+			pose.vecPosition[0] = c / 4;
 			pose.vecPosition[1] = MyCtrl[0].Y;
-			pose.vecPosition[2] = a * -1 / 2;
+			pose.vecPosition[2] = a * -1 / 4;
 
 
 			if (cnt == 100) {
@@ -323,20 +324,6 @@ public:
 			}
 		}
 		else {
-
-			if (center2 == true) {
-				MyCtrl[1].X = 0;
-				MyCtrl[1].Y = offset;
-				MyCtrl[1].Z = 0;
-				MyCtrl[1].Yaw = 0;
-				MyCtrl[1].Pitch = 0;
-				MyCtrl[1].Roll = 0;
-				pose.qRotation.w = rot.w;
-				pose.qRotation.x = rot.x;
-				pose.qRotation.y = rot.y;
-				pose.qRotation.z = rot.z;
-				center2 = false;
-			}
 
 			pose.vecDriverFromHeadTranslation[0] = MyCtrl[1].X;
 			pose.vecDriverFromHeadTranslation[2] = MyCtrl[1].Z;
@@ -351,9 +338,9 @@ public:
 
 			pose.qDriverFromHeadRotation = r;
 
-			pose.vecPosition[0] = c/2;
+			pose.vecPosition[0] = c/4;
 			pose.vecPosition[1] = MyCtrl[1].Y;
-			pose.vecPosition[2] = a * -1/2;
+			pose.vecPosition[2] = a * -1/4;
 			
 			if (cnt == 100) {
 				DriverLog("%d - HMD: %f %f %f / %f %f %f\n", ControllerIndex, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
@@ -433,7 +420,6 @@ public:
 
 		if (gamepad.GetButtonPressed(xButtons.DPad_Left))
 		{
-			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadLeft, 1, 0);
 			if (swap == 0) {
 				if (index == Active) {
 					MyCtrl[Active].X = MyCtrl[Active].X - 0.005;
@@ -445,13 +431,9 @@ public:
 			}
 
 		}
-		else {
-			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadLeft, 0, 0);
-		}
 
 		if (gamepad.GetButtonPressed(xButtons.DPad_Right))
 		{
-			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadRight, 1, 0);
 			if (swap == 0) {
 				if (index == Active) {
 					MyCtrl[Active].X = MyCtrl[Active].X + 0.005;
@@ -462,13 +444,9 @@ public:
 				MyCtrl[1].X = MyCtrl[1].X + 0.005;
 			}
 		}
-		else {
-			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadRight, 0, 0);
-		}
 
 		if (gamepad.GetButtonPressed(xButtons.DPad_Up))
 		{
-			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadUp, 1, 0);
 			if (swap == 0) {
 				if (index == Active) {
 					MyCtrl[Active].Z = MyCtrl[Active].Z - 0.005;
@@ -479,13 +457,9 @@ public:
 				MyCtrl[1].Z = MyCtrl[1].Z - 0.005;
 			}
 		}
-		else {
-			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadUp, 0, 0);
-		}
 
 		if (gamepad.GetButtonPressed(xButtons.DPad_Down))
 		{
-			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadDown, 1, 0);
 			if (swap == 0) {
 				if (index == Active) {
 					MyCtrl[Active].Z = MyCtrl[Active].Z + 0.005;
@@ -497,15 +471,11 @@ public:
 			}
 			
 		}
-		else {
-			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadDown, 0, 0);
-		}
 
 		// Bummers
 
 		if (gamepad.GetButtonPressed(xButtons.L_Shoulder))
 		{
-			vr::VRDriverInput()->UpdateBooleanComponent(m_bumLeft, 1, 0);
 			if (swap == 0) {
 				if (index == Active) {
 					MyCtrl[Active].Y = MyCtrl[Active].Y + 0.002;
@@ -516,13 +486,9 @@ public:
 				MyCtrl[1].Y = MyCtrl[1].Y + 0.002;
 			}
 		}
-		else {
-			vr::VRDriverInput()->UpdateBooleanComponent(m_bumLeft, 0, 0);
-		}
 
 		if (gamepad.GetButtonPressed(xButtons.R_Shoulder))
 		{
-			vr::VRDriverInput()->UpdateBooleanComponent(m_bumRight, 1, 0);
 			if (swap == 0) {
 				if (index == Active) {
 					MyCtrl[Active].Y = MyCtrl[Active].Y - 0.002;
@@ -534,8 +500,10 @@ public:
 			}
 
 		}
-		else {
-			vr::VRDriverInput()->UpdateBooleanComponent(m_bumRight, 0, 0);
+
+		if (gamepad.GetButtonPressed(xButtons.Back))
+		{
+			center = true;
 		}
 
 		// Singles
@@ -547,10 +515,10 @@ public:
 			if (float LftT = gamepad.LeftTrigger())
 			{
 				if (LftT > 0.6) {
-					vr::VRDriverInput()->UpdateScalarComponent(leftTriggerInputHandle[Active], LftT, 0);
+					vr::VRDriverInput()->UpdateScalarComponent(TriggerInputHandle[Active], LftT, 0);
 				}
 				else {
-					vr::VRDriverInput()->UpdateScalarComponent(leftTriggerInputHandle[Active], 0.0, 0);
+					vr::VRDriverInput()->UpdateScalarComponent(TriggerInputHandle[Active], 0.0, 0);
 				}
 			}
 
@@ -567,7 +535,6 @@ public:
 						swap = 0;
 						check = 1;
 					}
-					vr::VRDriverInput()->UpdateScalarComponent(rightTriggerInputHandle, RghT, 0);
 				}
 				else {
 					check = 0;
@@ -577,7 +544,6 @@ public:
 				if (check == 1) {
 					swap = 0;
 				}
-				vr::VRDriverInput()->UpdateScalarComponent(rightTriggerInputHandle, 0.0, 0);
 			}
 
 			// Buttons
@@ -624,43 +590,24 @@ public:
 				vr::VRDriverInput()->UpdateBooleanComponent(m_start, 0, 0);
 			}
 
-			if (gamepad.GetButtonPressed(xButtons.Back))
-			{
-				center2 = true;
-				center1 = true;
-				vr::VRDriverInput()->UpdateBooleanComponent(m_back, 1, 0);
-			}
-			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_back, 0, 0);
-			}
-
 			// Sticks click
 
 			if (gamepad.GetButtonPressed(xButtons.L_Thumbstick))
 			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_stickL, 1, 0);
-				if (ctrl == true) {
+				if (ctrl == true && swap == 0) {
 					Active = 0;
 					DriverLog("%d - ctrl\n", ControllerIndex);
 					ctrl = false;
 				}
 			}
-			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_stickL, 0, 0);
-			}
 
 			if (gamepad.GetButtonPressed(xButtons.R_Thumbstick))
 			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_stickR, 1, 0);
-
-				if (ctrl == false) {
+				if (ctrl == false && swap == 0) {
 					Active = 1;
 					DriverLog("%d - ctrl\n", ControllerIndex);
 					ctrl = true;
 				}
-			}
-			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_stickR, 0, 0);
 			}
 		}
 	}
@@ -721,8 +668,7 @@ private:
 
 	std::string m_sSerialNumber;
 
-	vr::VRInputComponentHandle_t rightTriggerInputHandle;
-	vr::VRInputComponentHandle_t leftTriggerInputHandle[2];
+	vr::VRInputComponentHandle_t TriggerInputHandle[2];
 
 	vr::VRInputComponentHandle_t rightJoystickXInputHandle;
 	vr::VRInputComponentHandle_t rightJoystickYInputHandle;
@@ -736,24 +682,14 @@ private:
 	vr::VRInputComponentHandle_t m_compX;
 	vr::VRInputComponentHandle_t m_compY;
 
-	vr::VRInputComponentHandle_t m_dPadUp;
-	vr::VRInputComponentHandle_t m_dPadDown;
-	vr::VRInputComponentHandle_t m_dPadLeft;
-	vr::VRInputComponentHandle_t m_dPadRight;
-
-	vr::VRInputComponentHandle_t m_bumRight;
-	vr::VRInputComponentHandle_t m_bumLeft;
-
 	vr::VRInputComponentHandle_t m_start;
 	vr::VRInputComponentHandle_t m_back;
-	vr::VRInputComponentHandle_t m_stickL;
-	vr::VRInputComponentHandle_t m_stickR;
 
 	bool tst = false;
 	int swap = 0;
 	int check = 0;
-	bool center1 = true;
-	bool center2 = true;
+	bool center = true;
+
 	int cnt = 0;
 };
 

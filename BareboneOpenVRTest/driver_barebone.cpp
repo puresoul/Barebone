@@ -8,6 +8,7 @@
 #include <thread>
 #include <chrono>
 #include <iostream>
+#include <atlbase.h>
 
 #include <map>
 #include <process.h>
@@ -33,11 +34,6 @@ typedef struct _Controller
 	double	Roll;
 } TController, * PController;
 
-bool ctrl = true;
-Gamepad gamepad; // Gamepad instance
-TController MyCtrl[2];
-int32_t Active = 1;
-
 #if defined(_WIN32)
 #define HMD_DLL_EXPORT extern "C" __declspec( dllexport )
 #define HMD_DLL_IMPORT extern "C" __declspec( dllimport )
@@ -47,6 +43,11 @@ int32_t Active = 1;
 #else
 #error "Unsupported Platform."
 #endif
+
+bool ctrl = true;
+Gamepad gamepad; // Gamepad instance
+TController MyCtrl[2];
+int32_t Active = 1;
 
 double DegToRad(double f) {
 	return f * (3.14159265358979323846 / 180);
@@ -174,22 +175,34 @@ public:
 			vr::VRProperties()->SetStringProperty(m_ulPropertyContainer, vr::Prop_NamedIconPathDeviceAlertLow_String, "{barebones}/icons/barebones_status_ready_low.png");
 		}
 
-		vr::VRDriverInput()->CreateScalarComponent(
-			m_ulPropertyContainer, "/input/trackpad/x", &leftJoystickXInputHandle,
-			vr::VRScalarType_Absolute, vr::VRScalarUnits_NormalizedTwoSided
-		);
-		vr::VRDriverInput()->CreateScalarComponent(
-			m_ulPropertyContainer, "/input/trackpad/y", &leftJoystickYInputHandle,
-			vr::VRScalarType_Absolute, vr::VRScalarUnits_NormalizedTwoSided
-		);
+		
+		switch (ControllerIndex)
+		{
+			case 0:
+				vr::VRDriverInput()->CreateScalarComponent(
+					m_ulPropertyContainer, "/input/trackpad/x", &leftJoystickXInputHandle,
+					vr::VRScalarType_Absolute, vr::VRScalarUnits_NormalizedTwoSided
+				);
+				vr::VRDriverInput()->CreateScalarComponent(
+					m_ulPropertyContainer, "/input/trackpad/y", &leftJoystickYInputHandle,
+					vr::VRScalarType_Absolute, vr::VRScalarUnits_NormalizedTwoSided
+				);
+				break;
+			case 1:
+				vr::VRDriverInput()->CreateScalarComponent(
+					m_ulPropertyContainer, "/input/trackpad/x", &rightJoystickXInputHandle,
+					vr::VRScalarType_Absolute, vr::VRScalarUnits_NormalizedTwoSided
+				);
+				vr::VRDriverInput()->CreateScalarComponent(
+					m_ulPropertyContainer, "/input/trackpad/y", &rightJoystickYInputHandle,
+					vr::VRScalarType_Absolute, vr::VRScalarUnits_NormalizedTwoSided
+				);
+				break;
+		}
+		
 
 		vr::VRDriverInput()->CreateScalarComponent(
 			m_ulPropertyContainer, "/input/trigger/value", &leftTriggerInputHandle[ControllerIndex],
-			vr::EVRScalarType::VRScalarType_Absolute, vr::EVRScalarUnits::VRScalarUnits_NormalizedOneSided
-		);
-
-		vr::VRDriverInput()->CreateScalarComponent(
-			m_ulPropertyContainer, "/input/trigger1/value", &rightTriggerInputHandle,
 			vr::EVRScalarType::VRScalarType_Absolute, vr::EVRScalarUnits::VRScalarUnits_NormalizedOneSided
 		);
 
@@ -361,7 +374,176 @@ public:
 
 	void ProcessHandles(int32_t index) {
 
+		// Sticks
+
+		if (float LftStX = gamepad.LeftStick_X())
+		{
+			if (swap == 0) {
+				vr::VRDriverInput()->UpdateScalarComponent(leftJoystickXInputHandle, LftStX, 0);
+			}
+			else {
+				MyCtrl[0].Pitch = MyCtrl[0].Pitch - LftStX * 0.5;
+			}
+		}
+		else {
+			vr::VRDriverInput()->UpdateScalarComponent(leftJoystickXInputHandle, 0.0, 0);
+
+		}
+
+		if (float LftStY = gamepad.LeftStick_Y())
+		{
+			if (swap == 0) {
+				vr::VRDriverInput()->UpdateScalarComponent(leftJoystickYInputHandle, LftStY, 0);
+			}
+			else {
+				MyCtrl[0].Roll = MyCtrl[0].Roll + LftStY * 0.5;
+			}
+		}
+		else {
+				vr::VRDriverInput()->UpdateScalarComponent(leftJoystickYInputHandle, 0.0, 0);
+		}
+
+		if (float RghStX = gamepad.RightStick_X())
+		{
+			if (swap == 0) {
+				vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, RghStX, 0);
+			}
+			else {
+				MyCtrl[1].Pitch = MyCtrl[1].Pitch - RghStX * 0.5;
+			}
+		}
+		else {
+			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, 0.0, 0);
+		}
+
+		if (float RghStY = gamepad.RightStick_Y())
+		{
+			if (swap == 0) {
+				vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, RghStY, 0);
+			}
+			else {
+				MyCtrl[1].Roll = MyCtrl[1].Roll + RghStY * 0.5;
+			}
+		}
+		else {
+			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, 0.0, 0);
+		}
+
+		// Dpad
+
+		if (gamepad.GetButtonPressed(xButtons.DPad_Left))
+		{
+			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadLeft, 1, 0);
+			if (swap == 0) {
+				if (index == Active) {
+					MyCtrl[Active].X = MyCtrl[Active].X - 0.005;
+				}
+			}
+			else {
+				MyCtrl[0].X = MyCtrl[0].X - 0.005;
+				MyCtrl[1].X = MyCtrl[1].X - 0.005;
+			}
+
+		}
+		else {
+			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadLeft, 0, 0);
+		}
+
+		if (gamepad.GetButtonPressed(xButtons.DPad_Right))
+		{
+			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadRight, 1, 0);
+			if (swap == 0) {
+				if (index == Active) {
+					MyCtrl[Active].X = MyCtrl[Active].X + 0.005;
+				}
+			}
+			else {
+				MyCtrl[0].X = MyCtrl[0].X + 0.005;
+				MyCtrl[1].X = MyCtrl[1].X + 0.005;
+			}
+		}
+		else {
+			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadRight, 0, 0);
+		}
+
+		if (gamepad.GetButtonPressed(xButtons.DPad_Up))
+		{
+			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadUp, 1, 0);
+			if (swap == 0) {
+				if (index == Active) {
+					MyCtrl[Active].Z = MyCtrl[Active].Z - 0.005;
+				}
+			}
+			else {
+				MyCtrl[0].Z = MyCtrl[0].Z - 0.005;
+				MyCtrl[1].Z = MyCtrl[1].Z - 0.005;
+			}
+		}
+		else {
+			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadUp, 0, 0);
+		}
+
+		if (gamepad.GetButtonPressed(xButtons.DPad_Down))
+		{
+			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadDown, 1, 0);
+			if (swap == 0) {
+				if (index == Active) {
+					MyCtrl[Active].Z = MyCtrl[Active].Z + 0.005;
+				}
+			}
+			else {
+				MyCtrl[0].Z = MyCtrl[0].Z + 0.005;
+				MyCtrl[1].Z = MyCtrl[1].Z + 0.005;
+			}
+			
+		}
+		else {
+			vr::VRDriverInput()->UpdateBooleanComponent(m_dPadDown, 0, 0);
+		}
+
+		// Bummers
+
+		if (gamepad.GetButtonPressed(xButtons.L_Shoulder))
+		{
+			vr::VRDriverInput()->UpdateBooleanComponent(m_bumLeft, 1, 0);
+			if (swap == 0) {
+				if (index == Active) {
+					MyCtrl[Active].Y = MyCtrl[Active].Y + 0.002;
+				}
+			}
+			else {
+				MyCtrl[0].Y = MyCtrl[0].Y + 0.002;
+				MyCtrl[1].Y = MyCtrl[1].Y + 0.002;
+			}
+		}
+		else {
+			vr::VRDriverInput()->UpdateBooleanComponent(m_bumLeft, 0, 0);
+		}
+
+		if (gamepad.GetButtonPressed(xButtons.R_Shoulder))
+		{
+			vr::VRDriverInput()->UpdateBooleanComponent(m_bumRight, 1, 0);
+			if (swap == 0) {
+				if (index == Active) {
+					MyCtrl[Active].Y = MyCtrl[Active].Y - 0.002;
+				}
+			}
+			else {
+				MyCtrl[0].Y = MyCtrl[0].Y - 0.002;
+				MyCtrl[1].Y = MyCtrl[1].Y - 0.002;
+			}
+
+		}
+		else {
+			vr::VRDriverInput()->UpdateBooleanComponent(m_bumRight, 0, 0);
+		}
+
+		// Singles
+
 		if (index == Active) {
+
+			// Triggers
+
 			if (float LftT = gamepad.LeftTrigger())
 			{
 				if (LftT > 0.6) {
@@ -375,64 +557,27 @@ public:
 			if (float RghT = gamepad.RightTrigger())
 			{
 				if (RghT > 0.6) {
-					vr::VRDriverInput()->UpdateScalarComponent(rightTriggerInputHandle, RghT, 0);
-					if (prc <= 10) {
-						switch (swap)
-						{
-						case 0:
-							swap = 1;
-							DriverLog("swap false");
-							break;
-						case 1:
-							swap = 0;
-							DriverLog("swap true");
-							break;
-						}
+					if (swap == 0 && check == 0) {
+						DriverLog("swap true");
+						swap = 1;
+						check = 1;
 					}
+					if (swap == 1 && check == 0) {
+						DriverLog("swap false");
+						swap = 0;
+						check = 1;
+					}
+					vr::VRDriverInput()->UpdateScalarComponent(rightTriggerInputHandle, RghT, 0);
+				}
+				else {
+					check = 0;
 				}
 			}
 			else {
+				if (check == 1) {
+					swap = 0;
+				}
 				vr::VRDriverInput()->UpdateScalarComponent(rightTriggerInputHandle, 0.0, 0);
-			}
-
-			// Sticks
-
-			if (float LftStX = gamepad.LeftStick_X())
-			{
-				vr::VRDriverInput()->UpdateScalarComponent(leftJoystickXInputHandle, LftStX, 0);
-				vr::VRDriverInput()->UpdateBooleanComponent(m_compY, 1, 0);
-			}
-			else {
-				vr::VRDriverInput()->UpdateScalarComponent(leftJoystickXInputHandle, 0.0, 0);
-				vr::VRDriverInput()->UpdateBooleanComponent(m_compY, 0, 0);
-			}
-
-			if (float LftStY = gamepad.LeftStick_Y())
-			{
-				vr::VRDriverInput()->UpdateScalarComponent(leftJoystickYInputHandle, LftStY, 0);
-				vr::VRDriverInput()->UpdateBooleanComponent(m_compY, 1, 0);
-			}
-			else {
-				vr::VRDriverInput()->UpdateScalarComponent(leftJoystickYInputHandle, 0.0, 0);
-				vr::VRDriverInput()->UpdateBooleanComponent(m_compY, 0, 0);
-			}
-
-			if (float RghStX = gamepad.RightStick_X())
-			{
-				vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, RghStX, 0);
-				MyCtrl[Active].Pitch = MyCtrl[Active].Pitch - RghStX * 0.8;
-			}
-			else {
-				vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, 0.0, 0);
-			}
-
-			if (float RghStY = gamepad.RightStick_Y())
-			{
-				vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, RghStY, 0);
-				MyCtrl[Active].Roll = MyCtrl[Active].Roll + RghStY * 0.8;
-			}
-			else {
-				vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, 0.0, 0);
 			}
 
 			// Buttons
@@ -481,106 +626,43 @@ public:
 
 			if (gamepad.GetButtonPressed(xButtons.Back))
 			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_back, 1, 0);
 				center2 = true;
 				center1 = true;
+				vr::VRDriverInput()->UpdateBooleanComponent(m_back, 1, 0);
 			}
 			else {
 				vr::VRDriverInput()->UpdateBooleanComponent(m_back, 0, 0);
-			}
-
-			// dPad
-
-			if (gamepad.GetButtonPressed(xButtons.DPad_Left))
-			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_dPadLeft, 1, 0);
-				MyCtrl[Active].X = MyCtrl[Active].X - 0.01;
-			}
-			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_dPadLeft, 0, 0);
-			}
-
-			if (gamepad.GetButtonPressed(xButtons.DPad_Right))
-			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_dPadRight, 1, 0); 
-				MyCtrl[Active].X = MyCtrl[Active].X + 0.01;
-			}
-			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_dPadRight, 0, 0); 
-			}
-
-			if (gamepad.GetButtonPressed(xButtons.DPad_Up))
-			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_dPadUp, 1, 0); 
-				MyCtrl[Active].Z = MyCtrl[Active].Z - 0.01;
-			}
-			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_dPadUp, 0, 0); 
-			}
-
-			if (gamepad.GetButtonPressed(xButtons.DPad_Down))
-			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_dPadDown, 1, 0); 
-				MyCtrl[Active].Z = MyCtrl[Active].Z + 0.01;
-			}
-			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_dPadDown, 0, 0); 
-			}
-
-			// Bummers
-
-			if (gamepad.GetButtonPressed(xButtons.L_Shoulder))
-			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_bumLeft, 1, 0); 
-				MyCtrl[Active].Y = MyCtrl[Active].Y + 0.004;
-			}
-			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_bumLeft, 0, 0); 
-			}
-
-			if (gamepad.GetButtonPressed(xButtons.R_Shoulder))
-			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_bumRight, 1, 0);
-				MyCtrl[Active].Y = MyCtrl[Active].Y - 0.004;
-			}
-			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_bumRight, 0, 0); 
 			}
 
 			// Sticks click
 
 			if (gamepad.GetButtonPressed(xButtons.L_Thumbstick))
 			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_stickL, 1, 0); 
+				vr::VRDriverInput()->UpdateBooleanComponent(m_stickL, 1, 0);
 				if (ctrl == true) {
 					Active = 0;
-					DriverLog("%d - ctrl true\n", ControllerIndex);
+					DriverLog("%d - ctrl\n", ControllerIndex);
 					ctrl = false;
 				}
 			}
 			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_stickL, 0, 0); 
+				vr::VRDriverInput()->UpdateBooleanComponent(m_stickL, 0, 0);
 			}
 
 			if (gamepad.GetButtonPressed(xButtons.R_Thumbstick))
 			{
-				vr::VRDriverInput()->UpdateBooleanComponent(m_stickR, 1, 0); 
+				vr::VRDriverInput()->UpdateBooleanComponent(m_stickR, 1, 0);
 
 				if (ctrl == false) {
 					Active = 1;
-					DriverLog("%d - ctrl false\n", ControllerIndex);
+					DriverLog("%d - ctrl\n", ControllerIndex);
 					ctrl = true;
 				}
 			}
 			else {
-				vr::VRDriverInput()->UpdateBooleanComponent(m_stickR, 0, 0); 
+				vr::VRDriverInput()->UpdateBooleanComponent(m_stickR, 0, 0);
 			}
-			//DriverLog("------ HMD - %f %f %f %f Cntrl - %f %f %f %f", rot.w, rot.x, rot.y, rot.z, Xr, Yr, Zr);
 		}
-		/*prc++;
-		if (prc == 100) {
-			prc = 0;
-		}*/
 	}
 	void RunFrame()
 	{
@@ -669,9 +751,9 @@ private:
 
 	bool tst = false;
 	int swap = 0;
+	int check = 0;
 	bool center1 = true;
 	bool center2 = true;
-	int prc = 0;
 	int cnt = 0;
 };
 
@@ -729,7 +811,7 @@ void BareboneProvider::RunFrame()
 {
 	if (gamepad.Connected()) {
 
-		gamepad.Update(); // Update gamepad
+		gamepad.Update();
 		if (m_pController)
 		{
 			m_pController->RunFrame();

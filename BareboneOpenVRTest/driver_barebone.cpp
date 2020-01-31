@@ -366,54 +366,106 @@ public:
 		if (float LftStX = gamepad.LeftStick_X())
 		{
 			if (swap == 0) {
-				vr::VRDriverInput()->UpdateScalarComponent(leftJoystickXInputHandle, LftStX, 0);
+				if (index == Active) {
+					MyCtrl[Active].Pitch = MyCtrl[Active].Pitch - LftStX * 0.5;
+				}
 			}
 			else {
-				MyCtrl[0].Pitch = MyCtrl[0].Pitch - LftStX * 0.5;
+				if (act == 1) {
+					MyCtrl[0].Pitch = MyCtrl[0].Pitch - LftStX * 0.5;
+				}
+				else {
+					vr::VRDriverInput()->UpdateScalarComponent(leftJoystickXInputHandle, LftStX, 0);
+				}
 			}
 		}
 		else {
-			vr::VRDriverInput()->UpdateScalarComponent(leftJoystickXInputHandle, 0.0, 0);
+			//vr::VRDriverInput()->UpdateScalarComponent(leftJoystickXInputHandle, 0.0, 0);
 
 		}
 
 		if (float LftStY = gamepad.LeftStick_Y())
 		{
 			if (swap == 0) {
-				vr::VRDriverInput()->UpdateScalarComponent(leftJoystickYInputHandle, LftStY, 0);
+				if (index == Active) {
+					MyCtrl[Active].Roll = MyCtrl[Active].Roll + LftStY * 0.5;
+				}
 			}
 			else {
-				MyCtrl[0].Roll = MyCtrl[0].Roll + LftStY * 0.5;
+				if (act == 1) {
+					MyCtrl[0].Roll = MyCtrl[0].Roll + LftStY * 0.5;
+				}
+				else {
+					vr::VRDriverInput()->UpdateScalarComponent(leftJoystickYInputHandle, LftStY, 0);
+				}
 			}
 		}
 		else {
-				vr::VRDriverInput()->UpdateScalarComponent(leftJoystickYInputHandle, 0.0, 0);
+				//vr::VRDriverInput()->UpdateScalarComponent(leftJoystickYInputHandle, 0.0, 0);
 		}
 
 		if (float RghStX = gamepad.RightStick_X())
 		{
 			if (swap == 0) {
-				vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, RghStX, 0);
+				if (index == Active) {
+					if (Active == 1) {
+						vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, RghStX, 0);
+					}
+					else {
+						vr::VRDriverInput()->UpdateScalarComponent(leftJoystickXInputHandle, RghStX, 0);
+					}
+				}
 			}
 			else {
-				MyCtrl[1].Pitch = MyCtrl[1].Pitch - RghStX * 0.5;
+				if (act == 0) {
+					MyCtrl[1].Pitch = MyCtrl[1].Pitch - RghStX * 0.5;
+				}
+				else {
+					vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, RghStX, 0);
+				}
 			}
 		}
 		else {
-			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, 0.0, 0);
+			if (index == Active) {
+				if (Active == 1) {
+					vr::VRDriverInput()->UpdateScalarComponent(rightJoystickXInputHandle, 0, 0);
+				}
+				else {
+					vr::VRDriverInput()->UpdateScalarComponent(leftJoystickXInputHandle, 0, 0);
+				}
+			}
 		}
 
 		if (float RghStY = gamepad.RightStick_Y())
 		{
 			if (swap == 0) {
-				vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, RghStY, 0);
+				if (index == Active) {
+					if (Active == 1) {
+						vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, RghStY, 0);
+					}
+					else {
+						vr::VRDriverInput()->UpdateScalarComponent(leftJoystickYInputHandle, RghStY, 0);
+					}
+				}
 			}
 			else {
-				MyCtrl[1].Roll = MyCtrl[1].Roll + RghStY * 0.5;
+				if (act == 0) {
+					MyCtrl[1].Roll = MyCtrl[1].Roll + RghStY * 0.5;
+				}
+				else {
+					vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, RghStY, 0);
+				}
 			}
 		}
 		else {
-			vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, 0.0, 0);
+			if (index == Active) {
+				if (Active == 1) {
+					vr::VRDriverInput()->UpdateScalarComponent(rightJoystickYInputHandle, 0, 0);
+				}
+				else {
+					vr::VRDriverInput()->UpdateScalarComponent(leftJoystickYInputHandle, 0, 0);
+				}
+			}
 		}
 
 		// Dpad
@@ -525,23 +577,23 @@ public:
 			if (float RghT = gamepad.RightTrigger())
 			{
 				if (RghT > 0.6) {
-					if (swap == 0 && check == 0) {
+					if (swap == 0 && check[0] == 0) {
 						DriverLog("swap true");
 						swap = 1;
-						check = 1;
+						check[0] = 1;
 					}
-					if (swap == 1 && check == 0) {
+					if (swap == 1 && check[0] == 0) {
 						DriverLog("swap false");
 						swap = 0;
-						check = 1;
+						check[0] = 1;
 					}
 				}
 				else {
-					check = 0;
+					check[0] = 0;
 				}
 			}
 			else {
-				if (check == 1) {
+				if (check[0] == 1) {
 					swap = 0;
 				}
 			}
@@ -599,6 +651,10 @@ public:
 					DriverLog("%d - ctrl\n", ControllerIndex);
 					ctrl = false;
 				}
+				if (ctrl == true && swap == 1) {
+					act = 1;
+					ctrl = false;
+				} 
 			}
 
 			if (gamepad.GetButtonPressed(xButtons.R_Thumbstick))
@@ -608,6 +664,11 @@ public:
 					DriverLog("%d - ctrl\n", ControllerIndex);
 					ctrl = true;
 				}
+				if (ctrl == false && swap == 1) {
+					act = 0;
+					ctrl = true;
+				}
+
 			}
 		}
 	}
@@ -687,7 +748,9 @@ private:
 
 	bool tst = false;
 	int swap = 0;
-	int check = 0;
+	int act = 0;
+	int stick = 0;
+	int check[2] = { 0, 0};
 	bool center = true;
 
 	int cnt = 0;

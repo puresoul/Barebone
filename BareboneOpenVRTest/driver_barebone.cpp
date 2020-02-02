@@ -259,6 +259,21 @@ public:
 			pchResponseBuffer[0] = 0;
 	}
 
+	void Center() {
+		double offset = 1.5;
+		for (int i = 0; i < 2; i++) {
+			if (center[i] == true) {
+				MyCtrl[i].X = 0;
+				MyCtrl[i].Y = offset;
+				MyCtrl[i].Z = 0;
+				MyCtrl[i].Yaw = 0;
+				MyCtrl[i].Pitch = 0;
+				MyCtrl[i].Roll = 0;
+				center[i] = false;
+			}
+		}
+	}
+
 	// ------------------------------------
 	// Tracking Methods
 	// ------------------------------------
@@ -272,7 +287,6 @@ public:
 		pose.qDriverFromHeadRotation = HmdQuaternion_Init(1, 0, 0, 0);
 
 		pose.qRotation = HmdQuaternion_Init(0, 0, 0, 0);
-		double offset = 1.5;
 
 		vr::TrackedDevicePose_t devicePoses[vr::k_unMaxTrackedDeviceCount];
 		vr::VRServerDriverHost()->GetRawTrackedDevicePoses(0, devicePoses, vr::k_unMaxTrackedDeviceCount);
@@ -285,19 +299,12 @@ public:
 		float b = tracker.mDeviceToAbsoluteTracking.m[1][0];
 		float c = (tracker.mDeviceToAbsoluteTracking.m[2][0]);
 
-		if (center == true) {
-			MyCtrl[ControllerIndex].X = 0;
-			MyCtrl[ControllerIndex].Y = offset;
-			MyCtrl[ControllerIndex].Z = 0;
-			MyCtrl[ControllerIndex].Yaw = 0;
-			MyCtrl[ControllerIndex].Pitch = 0;
-			MyCtrl[ControllerIndex].Roll = 0;
-			pose.qRotation.w = rot.w;
-			pose.qRotation.x = rot.x;
-			pose.qRotation.y = rot.y;
-			pose.qRotation.z = rot.z;
+		if (center[0] == true || center[1] == true) {
+			Center();
+			pose.qRotation = rot;
 			pose.vecDriverFromHeadTranslation[2] = 3.5;
-			center = false;
+			pose.vecPosition[0] = c / 4;
+			pose.vecPosition[2] = a * -1 / 4;
 		}
 
 		if (ControllerIndex == 0) {
@@ -371,7 +378,7 @@ public:
 				}
 			}
 			else {
-				if (act == 1) {
+				if (act[0] == 0) {
 					MyCtrl[0].Pitch = MyCtrl[0].Pitch - LftStX * 0.5;
 				}
 				else {
@@ -392,7 +399,7 @@ public:
 				}
 			}
 			else {
-				if (act == 1) {
+				if (act[0] == 0) {
 					MyCtrl[0].Roll = MyCtrl[0].Roll + LftStY * 0.5;
 				}
 				else {
@@ -417,7 +424,7 @@ public:
 				}
 			}
 			else {
-				if (act == 0) {
+				if (act[1] == 0) {
 					MyCtrl[1].Pitch = MyCtrl[1].Pitch - RghStX * 0.5;
 				}
 				else {
@@ -449,7 +456,7 @@ public:
 				}
 			}
 			else {
-				if (act == 0) {
+				if (act[1] == 0) {
 					MyCtrl[1].Roll = MyCtrl[1].Roll + RghStY * 0.5;
 				}
 				else {
@@ -555,7 +562,15 @@ public:
 
 		if (gamepad.GetButtonPressed(xButtons.Back))
 		{
-			center = true;
+			if (index == Active) {
+				if (swap == 0) {
+					center[Active] = true;
+				}
+				else {
+					center[0] = true;
+					center[1] = true;
+				}
+			}
 		}
 
 		// Singles
@@ -577,23 +592,23 @@ public:
 			if (float RghT = gamepad.RightTrigger())
 			{
 				if (RghT > 0.6) {
-					if (swap == 0 && check[0] == 0) {
+					if (swap == 0 && check == 0) {
 						DriverLog("swap true");
 						swap = 1;
-						check[0] = 1;
+						check = 1;
 					}
-					if (swap == 1 && check[0] == 0) {
+					if (swap == 1 && check == 0) {
 						DriverLog("swap false");
 						swap = 0;
-						check[0] = 1;
+						check = 1;
 					}
 				}
 				else {
-					check[0] = 0;
+					check = 0;
 				}
 			}
 			else {
-				if (check[0] == 1) {
+				if (check == 1) {
 					swap = 0;
 				}
 			}
@@ -651,10 +666,27 @@ public:
 					DriverLog("%d - ctrl\n", ControllerIndex);
 					ctrl = false;
 				}
-				if (ctrl == true && swap == 1) {
-					act = 1;
-					ctrl = false;
-				} 
+				if (chck[0] == 0 && swap == 1) {
+					switch (act[0])
+					{
+					case 0:
+						act[0] = 1;
+						break;
+					case 1:
+						act[0] = 0;
+						break;
+					}
+					chck[0] = 1;
+				}
+				else {
+					chck[0] = 1;
+				}
+
+			} 
+			else {
+				if (chck[0] == 1 && swap == 1) {
+					chck[0] = 0;
+				}
 			}
 
 			if (gamepad.GetButtonPressed(xButtons.R_Thumbstick))
@@ -664,11 +696,27 @@ public:
 					DriverLog("%d - ctrl\n", ControllerIndex);
 					ctrl = true;
 				}
-				if (ctrl == false && swap == 1) {
-					act = 0;
-					ctrl = true;
+				if (chck[1] == 0 && swap == 1) {
+					switch (act[1])
+					{
+					case 0:
+						act[1] = 1;
+						break;
+					case 1:
+						act[1] = 0;
+						break;
+					}
+					chck[1] = 1;
+				}
+				else {
+					chck[1] = 1;
 				}
 
+			}
+			else {
+				if (chck[1] == 1 && swap == 1) {
+					chck[1] = 0;
+				}
 			}
 		}
 	}
@@ -746,12 +794,11 @@ private:
 	vr::VRInputComponentHandle_t m_start;
 	vr::VRInputComponentHandle_t m_back;
 
-	bool tst = false;
 	int swap = 0;
-	int act = 0;
-	int stick = 0;
-	int check[2] = { 0, 0};
-	bool center = true;
+	int act[2] = { 0, 0 };
+	int check = 0;
+	int chck[2] = { 0,0 };
+	bool center[2] = { true, true };
 
 	int cnt = 0;
 };

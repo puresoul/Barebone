@@ -4,6 +4,8 @@ OpenVR xinput controller driver for emulating Vive controllers
 
 tracks HMD rotation and position and sets virtual controllers in to field of view. (a little bit similar to riftcat vridge app)
 
+**Words of caution, this driver was my 1st expirience with openvr api, it's worknig but please don't have very high expectation ;-)**
+
 ![nXurIGWKoT](https://user-images.githubusercontent.com/2646309/72664664-d1a6c500-3a00-11ea-85a8-59d408d03847.gif)
 
 # Install

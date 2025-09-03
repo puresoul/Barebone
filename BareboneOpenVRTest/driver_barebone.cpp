@@ -1,4 +1,4 @@
-﻿//============ Copyright (c) Valve Corporation, All rights reserved. ============
+//============ Copyright (c) Valve Corporation, All rights reserved. ============
 
 #include <openvr_driver.h>
 #include <cstdio>
@@ -49,6 +49,19 @@ Gamepad gamepad; // Gamepad instance
 TController MyCtrl[2];
 int32_t Active = 1;
 
+// Enhanced controller positioning
+struct ControllerOffset {
+    double offsetX;    // Left/right offset from HMD
+    double offsetY;    // Up/down offset from HMD  
+    double offsetZ;    // Forward/backward offset from HMD
+    double distance;   // Distance in front of HMD
+};
+
+ControllerOffset controllerOffsets[2] = {
+    {-0.3, -0.1, 0.4, 0.5},  // Left controller: slightly left, down, and forward
+    {0.3, -0.1, 0.4, 0.5}    // Right controller: slightly right, down, and forward
+};
+
 double DegToRad(double f) {
 	return f * (3.14159265358979323846 / 180);
 }
@@ -61,6 +74,33 @@ inline HmdQuaternion_t HmdQuaternion_Init(double w, double x, double y, double z
 	quat.y = y;
 	quat.z = z;
 	return quat;
+}
+
+// Enhanced quaternion multiplication for proper rotation combination
+HmdQuaternion_t MultiplyQuaternions(const HmdQuaternion_t& q1, const HmdQuaternion_t& q2) {
+    HmdQuaternion_t result;
+    result.w = q1.w * q2.w - q1.x * q2.x - q1.y * q2.y - q1.z * q2.z;
+    result.x = q1.w * q2.x + q1.x * q2.w + q1.y * q2.z - q1.z * q2.y;
+    result.y = q1.w * q2.y - q1.x * q2.z + q1.y * q2.w + q1.z * q2.x;
+    result.z = q1.w * q2.z + q1.x * q2.y - q1.y * q2.x + q1.z * q2.w;
+    return result;
+}
+
+// Rotate a vector by a quaternion
+void RotateVectorByQuaternion(double& x, double& y, double& z, const HmdQuaternion_t& q) {
+    // Convert vector to quaternion (w=0)
+    HmdQuaternion_t vecQuat = {0, x, y, z};
+    
+    // q* (conjugate)
+    HmdQuaternion_t qConj = {q.w, -q.x, -q.y, -q.z};
+    
+    // Rotate: q * vecQuat * q*
+    HmdQuaternion_t temp = MultiplyQuaternions(q, vecQuat);
+    HmdQuaternion_t result = MultiplyQuaternions(temp, qConj);
+    
+    x = result.x;
+    y = result.y;
+    z = result.z;
 }
 
 //-----------------------------------------------------------------------------
@@ -280,78 +320,68 @@ public:
 	virtual DriverPose_t GetPose()
 	{
 		DriverPose_t pose = { 0 };
-		TrackedDevicePose_t trackedDevicePose;
-		VRControllerState_t controllerState;
 
 		pose.qWorldFromDriverRotation = HmdQuaternion_Init(1, 0, 0, 0);
 		pose.qDriverFromHeadRotation = HmdQuaternion_Init(1, 0, 0, 0);
 
-		pose.qRotation = HmdQuaternion_Init(0, 0, 0, 0);
-
+		// Get HMD tracking data
 		vr::TrackedDevicePose_t devicePoses[vr::k_unMaxTrackedDeviceCount];
 		vr::VRServerDriverHost()->GetRawTrackedDevicePoses(0, devicePoses, vr::k_unMaxTrackedDeviceCount);
-		vr::TrackedDevicePose_t tracker = devicePoses[0];
-		HmdQuaternion_t rot = GetRotation(tracker.mDeviceToAbsoluteTracking);
+		vr::TrackedDevicePose_t hmdPose = devicePoses[0];
+		
+		if (!hmdPose.bPoseIsValid) {
+			// If HMD pose is not valid, return default pose
+			pose.poseIsValid = false;
+			pose.result = TrackingResult_Uninitialized;
+			pose.deviceIsConnected = true;
+			return pose;
+		}
 
-		HmdQuaternion_t r;
-
-		float a = (tracker.mDeviceToAbsoluteTracking.m[0][0]);
-		float b = tracker.mDeviceToAbsoluteTracking.m[1][0];
-		float c = (tracker.mDeviceToAbsoluteTracking.m[2][0]);
+		// Extract HMD position and rotation
+		HmdMatrix34_t hmdMatrix = hmdPose.mDeviceToAbsoluteTracking;
+		HmdQuaternion_t hmdRotation = GetRotation(hmdMatrix);
+		
+		// HMD position
+		double hmdPosX = hmdMatrix.m[0][3];
+		double hmdPosY = hmdMatrix.m[1][3];
+		double hmdPosZ = hmdMatrix.m[2][3];
 
 		if (center[0] == true || center[1] == true) {
 			Center();
-			pose.qRotation = rot;
-			pose.vecDriverFromHeadTranslation[2] = 3.5;
-			pose.vecPosition[0] = c / 4;
-			pose.vecPosition[2] = a * -1 / 4;
 		}
 
-		if (ControllerIndex == 0) {
+		// Get controller-specific offset
+		ControllerOffset offset = controllerOffsets[ControllerIndex];
+		
+		// Apply user adjustments to offset
+		double adjustedOffsetX = offset.offsetX + MyCtrl[ControllerIndex].X;
+		double adjustedOffsetY = offset.offsetY + MyCtrl[ControllerIndex].Y;
+		double adjustedOffsetZ = offset.offsetZ + MyCtrl[ControllerIndex].Z;
 
-			pose.vecDriverFromHeadTranslation[0] = MyCtrl[0].X;
-			pose.vecDriverFromHeadTranslation[2] = MyCtrl[0].Z;
+		// Rotate the offset by HMD rotation to keep controllers in front of camera
+		RotateVectorByQuaternion(adjustedOffsetX, adjustedOffsetY, adjustedOffsetZ, hmdRotation);
 
-			r.w = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) + sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
-			r.x = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) - sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
-			r.y = cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5) + sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5);
-			r.z = sin(DegToRad(MyCtrl[0].Yaw) * 0.5) * cos(DegToRad(MyCtrl[0].Roll) * 0.5) * cos(DegToRad(MyCtrl[0].Pitch) * 0.5) - cos(DegToRad(MyCtrl[0].Yaw) * 0.5) * sin(DegToRad(MyCtrl[0].Roll) * 0.5) * sin(DegToRad(MyCtrl[0].Pitch) * 0.5);
+		// Set controller position relative to HMD
+		pose.vecPosition[0] = hmdPosX + adjustedOffsetX;
+		pose.vecPosition[1] = hmdPosY + adjustedOffsetY;
+		pose.vecPosition[2] = hmdPosZ + adjustedOffsetZ;
 
-			pose.qRotation = rot;
+		// Controller rotation combines HMD rotation with user adjustments
+		HmdQuaternion_t userRotation;
+		userRotation.w = cos(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5) + sin(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5);
+		userRotation.x = cos(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5) - sin(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5);
+		userRotation.y = cos(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5) + sin(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5);
+		userRotation.z = sin(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * cos(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5) - cos(DegToRad(MyCtrl[ControllerIndex].Yaw) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Roll) * 0.5) * sin(DegToRad(MyCtrl[ControllerIndex].Pitch) * 0.5);
 
-			pose.qDriverFromHeadRotation = r;
+		// Combine HMD rotation with user rotation
+		pose.qRotation = MultiplyQuaternions(hmdRotation, userRotation);
 
-			pose.vecPosition[0] = c / 4;
-			pose.vecPosition[1] = MyCtrl[0].Y;
-			pose.vecPosition[2] = a * -1 / 4;
-
-
-			if (cnt == 100) {
-				DriverLog("%d - HMD: %f %f %f / %f %f %f\n", ControllerIndex, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
-			}
-		}
-		else {
-
-			pose.vecDriverFromHeadTranslation[0] = MyCtrl[1].X;
-			pose.vecDriverFromHeadTranslation[2] = MyCtrl[1].Z;
-			
-
-			r.w = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) + sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
-			r.x = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) - sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
-			r.y = cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5) + sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5);
-			r.z = sin(DegToRad(MyCtrl[1].Yaw) * 0.5) * cos(DegToRad(MyCtrl[1].Roll) * 0.5) * cos(DegToRad(MyCtrl[1].Pitch) * 0.5) - cos(DegToRad(MyCtrl[1].Yaw) * 0.5) * sin(DegToRad(MyCtrl[1].Roll) * 0.5) * sin(DegToRad(MyCtrl[1].Pitch) * 0.5);
-
-			pose.qRotation = rot;
-
-			pose.qDriverFromHeadRotation = r;
-
-			pose.vecPosition[0] = c/4;
-			pose.vecPosition[1] = MyCtrl[1].Y;
-			pose.vecPosition[2] = a * -1/4;
-			
-			if (cnt == 100) {
-				DriverLog("%d - HMD: %f %f %f / %f %f %f\n", ControllerIndex, pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2], rot.x, rot.y, rot.z);
-			}
+		// Debug logging (reduced frequency)
+		if (cnt == 100) {
+			DriverLog("%d - Controller pos: %f %f %f | HMD pos: %f %f %f\n", 
+				ControllerIndex, 
+				pose.vecPosition[0], pose.vecPosition[1], pose.vecPosition[2],
+				hmdPosX, hmdPosY, hmdPosZ);
 		}
 
 		cnt++;

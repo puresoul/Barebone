@@ -58,8 +58,8 @@ struct ControllerOffset {
 };
 
 ControllerOffset controllerOffsets[2] = {
-    {-0.3, -0.1, 0.4, 0.5},  // Left controller: slightly left, down, and forward
-    {0.3, -0.1, 0.4, 0.5}    // Right controller: slightly right, down, and forward
+    {-0.3, -0.1, -0.5, 0.1},  // Left controller: slightly left, down, and forward
+    {0.4, -0.1, -0.5, 0.1}    // Right controller: slightly right, down, and forward
 };
 
 double DegToRad(double f) {
@@ -299,20 +299,6 @@ public:
 			pchResponseBuffer[0] = 0;
 	}
 
-	void Center() {
-		double offset = 1.5;
-		for (int i = 0; i < 2; i++) {
-			if (center[i] == true) {
-				MyCtrl[i].X = 0;
-				MyCtrl[i].Y = offset;
-				MyCtrl[i].Z = 0;
-				MyCtrl[i].Yaw = 0;
-				MyCtrl[i].Pitch = 0;
-				MyCtrl[i].Roll = 0;
-				center[i] = false;
-			}
-		}
-	}
 
 	// ------------------------------------
 	// Tracking Methods
@@ -346,9 +332,6 @@ public:
 		double hmdPosY = hmdMatrix.m[1][3];
 		double hmdPosZ = hmdMatrix.m[2][3];
 
-		if (center[0] == true || center[1] == true) {
-			Center();
-		}
 
 		// Get controller-specific offset
 		ControllerOffset offset = controllerOffsets[ControllerIndex];
